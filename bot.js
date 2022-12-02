@@ -1,130 +1,60 @@
 const TelegramBot = require('node-telegram-bot-api');
 const { BOT_TOKEN } = require('./data.js');
+const keyboards = require('./keyboards.js');
+const questions = require('./questions.js');
 
 const bot = new TelegramBot(BOT_TOKEN, {polling: true});
 
-const getReplyKeyboardMarkup = () => {
-    return {
-        keyboard: [
-                [{
-                    text: 'Main Menu',
-                    input_field_placeholder: 'nice shot'
-                }],
-                [{
-                    text: 'Settings'
-                }],
-                [{
-                    text: 'Leave'
-                }]
-            ],
-        one_time_keyboard: true,
-        input_field_placeholder: 'Choose an option',
-        resize_keyboard: true
-    };
-}
+let countWrong = 0;
 
-const getReplyKeyboardRemove = () => {
-    return {
-        remove_keyboard: true
-    }
-}
-
-const getInlineKeyboard = () => {
-    return {
-        inline_keyboard: [
-            [
-                {
-                    text: 'Fish',
-                    callback_data: '.'
-                },
-                {
-                    text: 'Meat',
-                    callback_data: '.'
-                }
-            ],
-            [
-                {
-                    text: 'Dairy Products',
-                    callback_data: '.'
-                },
-                {
-                    text: 'Vegetables',
-                    callback_data: '.'
-                }
-            ],
-            [
-                {
-                    text: 'Fruits',
-                    callback_data: '.'
-                },
-                {
-                    text: 'Sweets',
-                    callback_data: '.'
-                }
-            ],
-            [
-                {
-                    text: 'Nuts',
-                    callback_data: '.'
-                },
-                {
-                    text: 'Cereals',
-                    callback_data: '.'
-                }
-            ]
-        ]
-    }
-}
-
-bot.onText(/\/keyboard/, async (message) => {
+bot.onText(/\/start/, async (message) => {
+    countWrong = 0;
     const chatId = message.chat.id;
 
     const opts = {
-        reply_markup: {
-            inline_keyboard: [
-                [{
-                    text: "InlineKeyboard",
-                    callback_data: 'inlineKeyboard'
-                },
-                {
-                    text: "ReplyKeyboard",
-                    callback_data: 'replyKeyboard'
-                }],
-                [{
-                    text: 'Clear ReplyKeyboard',
-                    callback_data: 'clear'
-                }]
-            ]
-        }
+        reply_markup: keyboards.question1
     }
 
-    bot.sendMessage(chatId, "Select type of a keyboard", opts);
+    bot.sendMessage(chatId, questions.question1, opts);
 });
 
 bot.on('callback_query', async (callbackQuery) => {
-    if (callbackQuery.data !== undefined) {
-        bot.answerCallbackQuery(callbackQuery.id);
+    const data = callbackQuery.data;
 
-        const data = callbackQuery.data;
+    if (data === 'wrong') {
+        const questionText = callbackQuery.message.text.split('\n').at(-1);
+        const editedText = `${++countWrong} Нет, ответ неверный. Попробуй еще раз.\n\n${questionText}`;
 
-        let messageText = "";
-        let opts = {
-            reply_markup: {}
-        };
+        bot.editMessageText(editedText,{chat_id: callbackQuery.message.chat.id, message_id: callbackQuery.message.message_id, reply_markup: callbackQuery.message.reply_markup});
+        return;
+    }
 
-        if (data === "inlineKeyboard") {
-            opts.reply_markup = getInlineKeyboard();
-            messageText = "InlineKeyboard";
-        } else if (data === 'replyKeyboard') {
-            opts.reply_markup = getReplyKeyboardMarkup();
-            messageText = "ReplyKeyboard";
-        } else if (data === 'clear') {
-            opts.reply_markup = getReplyKeyboardRemove();
-            messageText = 'ReplyKeyboard cleared'
-        } else {
-            return;
-        }
+    if (data === 'question2') {
+        countWrong = 0;
+        const nextQuestion = questions.question2;
+        const editedText = `Правильно, молодец! Давай перейдем к следующему вопросу\n\n${nextQuestion}`;
+        bot.editMessageText(editedText, {chat_id: callbackQuery.message.chat.id, message_id: callbackQuery.message.message_id, reply_markup: keyboards.question2});
+        return;
+    }
 
-        bot.sendMessage(callbackQuery.message.chat.id, messageText, opts);
+    if (data === 'question3') {
+        countWrong = 0;
+        const nextQuestion = questions.question3;
+        const editedText = `Вообще супер! Давай-ка еще один\n\n${nextQuestion}`;
+
+        bot.editMessageText(editedText, {chat_id: callbackQuery.message.chat.id, message_id: callbackQuery.message.message_id, reply_markup: keyboards.question3});
+        return;
+    }
+
+    if (data === 'win') {
+        bot.editMessageText("Поздравляю! Тебе удалось пройти эти вопросы!", {chat_id: callbackQuery.message.chat.id, message_id: callbackQuery.message.message_id});
+        return;
+    }
+
+    if (data === 'joke') {
+        const questionText = callbackQuery.message.text.split('\n').at(-1);
+        const editedMessage = `${++countWrong} Да, это 100% какой-то индюк, но давай уточним, какой именно это индюк\n\n${questionText}`;
+        bot.editMessageText(editedMessage, {chat_id: callbackQuery.message.chat.id, message_id: callbackQuery.message.message_id, reply_markup: callbackQuery.message.reply_markup});
+        return;
     }
 });
